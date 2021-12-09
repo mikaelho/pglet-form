@@ -4,11 +4,7 @@ from threading import Thread
 import pglet
 from pglet import Text, Stack, Textbox, Button, Checkbox, Tabs, Tab
 
-class Form(Stack):
-    
-    def __init__(self, width='90%', **kwargs):
-        super().__init__(**kwargs)
-        self.width = width
+from form import Form
 
 
 class Task():
