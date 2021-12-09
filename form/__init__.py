@@ -1,6 +1,9 @@
 from functools import partial
+from typing import Any
 
-from pglet import DatePicker, SpinButton, Stack, TextBox, Toggle
+from pglet import ChoiceGroup, DatePicker, SpinButton, Stack, Textbox, Toggle
+from pglet import choicegroup
+
 
 class Form(Stack):
 
@@ -15,31 +18,29 @@ class Form(Stack):
         'float': float_button,
         'Decimal': float_button,
         'bool': Toggle,
-        'datetime': TextBox,
+        'datetime': Textbox,
         'date': DatePicker,
-        'time': TextBox,
+        'time': Textbox,
 
         # pydantic types
         # 'SecretStr': , not supported by pglet
-        'ConstrainedInt': SpinButton,
-        'NegativeInt': SpinButton,
-        'PositiveInt': SpinButton,
-        'StrictInt': SpinButton,
-        'ConstrainedFloat': float_button,
-        'NegativeFloat': float_button,
-        'PositiveFloat': float_button,
-        'StrictFloat': float_button,
-        'ConstrainedDecimal': float_button,
-        'StrictBool': Toggle,
-        'EmailStr': TextBox,
-        'PastDate': DatePicker,
-        'FutureDate': DatePicker,
+        'ConstrainedIntValue': SpinButton,
+        'NegativeIntValue': SpinButton,
+        'PositiveIntValue': SpinButton,
+        'StrictIntValue': SpinButton,
+        'ConstrainedFloatValue': float_button,
+        'NegativeFloatValue': float_button,
+        'PositiveFloatValue': float_button,
+        'StrictFloatValue': float_button,
+        'ConstrainedDecimalValue': float_button,
+        'StrictBoolValue': Toggle,
+        'EmailStrValue': Textbox,
+        'PastDateValue': DatePicker,
+        'FutureDateValue': DatePicker,
     }
 
-    def __init__(self, width='90%', **kwargs):
+    def __init__(self, data, **kwargs):
         super().__init__(**kwargs)
-        self.width = width
-        self.horizontal = False
 
         if type(data) is type:
             self.model = data
@@ -52,7 +53,7 @@ class Form(Stack):
             self.data = data
         self.fields = {}
 
-        self.controls = _create_controls()
+        self.controls = self._create_controls()
 
     def _create_controls(self):
         return [
@@ -61,6 +62,7 @@ class Form(Stack):
         ]
 
     def _create_control(self, attribute: str, attribute_type: Any):
+        value=getattr(self.data, attribute)
         label_text = attribute.replace('_', ' ').capitalize()
         content_hint = ''
 
@@ -71,9 +73,21 @@ class Form(Stack):
             label_text = pydantic_field.field_info.title or label_text
             content_hint = pydantic_field.field_info.description or ''
 
-        control_type = from_data_type_to_form_control.get(attribute_type, TextBox)
-        control = control_type(label=label_text)
-        if control_type is TextBox:
-            control.placeholder = content_hint
+        if type(attribute_type).__name__ == 'EnumMeta':
+            control = ChoiceGroup(
+                label=label_text,
+                options=[
+                    choicegroup.Option(key=option.name, text=option.value.title())
+                    for option in attribute_type
+                ],
+                value=attribute_type(value).name,
+            )
+        else:
+            control_type = self.from_data_type_to_form_control.get(attribute_type.__name__, Textbox)
+            control = control_type(label=label_text, value=value)
+            if control_type is Textbox:
+                control.placeholder = content_hint
 
         self.fields[attribute] = control
+
+        return control
