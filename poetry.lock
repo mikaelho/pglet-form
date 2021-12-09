@@ -1,18 +1,8 @@
-[[package]]
-name = "pglet"
-version = "0.4.6"
-description = "Pglet client for Python - easily build interactive web apps in Python"
-category = "main"
-optional = false
-python-versions = ">=3.7"
+package = []
 
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "8dc8af935097fe9d4df5b10b858f720f85e8529cb3d7bf55311253f85c76fd7c"
+content-hash = "fafb334cb038533f851c23d0b63254223abf72ce4f02987e7064b0c95566699a"
 
 [metadata.files]
-pglet = [
-    {file = "pglet-0.4.6-py3-none-any.whl", hash = "sha256:c15b4368d70626497def005bcba1a61c1ff05a445e2187dd26464c4538b0161f"},
-    {file = "pglet-0.4.6.tar.gz", hash = "sha256:6be5a98d80c2b74f8e319fe198c06ec3471985fab5988e5c2c5c71694bbe4c7c"},
-]
