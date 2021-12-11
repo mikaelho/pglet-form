@@ -5,6 +5,8 @@ from enum import Enum
 
 import pydantic
 
+from typing import Union, Literal
+
 import pglet
 
 from form import Form
@@ -31,18 +33,26 @@ class PydanticDataModel(pydantic.BaseModel):
     temperature: float = 37.0
     happy_today: bool = pydantic.Field(default=True, title='Am I happy today?')
     contact_preference: ContactOptions = ContactOptions.EMAIL
-    email: str = pydantic.Field(default='', description='Give a valid email address')
-    phone: str = ''
+    email: Union[pydantic.EmailStr, Literal[""]] = pydantic.Field(default='',
+        description='Give a valid email address',
+    )
+    phone: str = pydantic.Field(default='', regex='^[\d ()+-]*?$')
+
+    @pydantic.validator('email', pre=True)
+    def field_for_preference_is_filled(cls, value, values):
+        if values.get('contact_preference') == ContactOptions.EMAIL and not value:
+            raise ValueError('foo')
+        return value   
 
 
 class FormTestApp():
-    def __init__(self):
+    def __init__(self, page):
         self.view = pglet.Tabs(tabs=[
             pglet.Tab(text='Pydantic form', controls=[
-                Form(data=PydanticDataModel()),
+                Form(value=PydanticDataModel(), page=page),
             ]),
             pglet.Tab(text='Dataclass form', controls=[
-                Form(data=DataclassDataModel()),
+                Form(value=DataclassDataModel(), page=page),
             ]),
         ])
 
@@ -51,7 +61,7 @@ def main(page):
     page.title = "Form test"
     page.horizontal_align = 'center'
     page.theme = 'light'
-    app = FormTestApp()
+    app = FormTestApp(page)
     page.add(app.view)
 
 
