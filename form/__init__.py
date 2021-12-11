@@ -4,8 +4,9 @@ import time
 from functools import partial
 from typing import Any, Union
 
-from pglet import Button, ChoiceGroup, DatePicker, Message, SpinButton, Stack, Textbox, Toggle
+from pglet import Button, ChoiceGroup, DatePicker, Dropdown, Message, SpinButton, Stack, Textbox, Toggle
 from pglet import choicegroup
+from pglet.control_event import ControlEvent
 
 
 class Form(Stack):
@@ -13,6 +14,7 @@ class Form(Stack):
     step_for_floats = .01
 
     float_button = partial(SpinButton, step=step_for_floats)
+    date_picker_with_edit = partial(DatePicker, allow_text_input=True)
 
     from_data_type_to_form_control = {
 
@@ -22,7 +24,7 @@ class Form(Stack):
         'Decimal': float_button,
         'bool': Toggle,
         'datetime': Textbox,
-        'date': DatePicker,
+        'date': date_picker_with_edit,
         'time': Textbox,
 
         # pydantic types
@@ -38,27 +40,31 @@ class Form(Stack):
         'ConstrainedDecimalValue': float_button,
         'StrictBoolValue': Toggle,
         'EmailStrValue': Textbox,
-        'PastDateValue': DatePicker,
-        'FutureDateValue': DatePicker,
+        'PastDateValue': date_picker_with_edit,
+        'FutureDateValue': date_picker_with_edit,
     }
 
-    def __init__(self, value, page, on_submit=None, submit_button=None, **kwargs):
+    def __init__(self, value, page, on_submit=None, submit_button=None, control_style='normal', **kwargs):
         super().__init__(**kwargs)
         self.page = page
+        self.control_style = control_style
 
         if type(value) is type:
-            self.model = value
-            if hasattr(self.model, '__fields__'):
-                self.value = self.model.construct()
+            self._model = value
+            if hasattr(self._model, '__fields__'):
+                self.value = self._model.construct()
             else:
-                self.value = self.model()
+                try:
+                    self.value = self._model()
+                except Exception as error:
+                    raise ValueError('Unable to instantiate form data with default values', error)
         else:
-            self.model = type(value)
+            self._model = type(value)
             self.value = value
         
-        self.fields = {}
-        self.messages = {}
-        self.pydantic_fields = {}
+        self._fields = {}
+        self._messages = {}
+        self._pydantic_fields = {}
 
         self.on_submit = getattr(submit_button, 'on_click', on_submit)
 
@@ -72,7 +78,7 @@ class Form(Stack):
     def _create_controls(self):
         self.controls = [
             self._create_control(attribute, attribute_type)
-            for attribute, attribute_type in self.model.__annotations__.items()
+            for attribute, attribute_type in self._model.__annotations__.items()
         ] + [self._submit_button, self._form_not_valid_message]
 
     def _create_control(self, attribute: str, attribute_type: Any, label=True):
@@ -85,10 +91,10 @@ class Form(Stack):
         error_message = 'Check this value'
 
         # pydantic support
-        pydantic_field = hasattr(self.model, '__fields__') and self.value.__fields__.get(attribute) or None
+        pydantic_field = hasattr(self._model, '__fields__') and self.value.__fields__.get(attribute) or None
 
         if pydantic_field:
-            self.pydantic_fields[attribute] = pydantic_field
+            self._pydantic_fields[attribute] = pydantic_field
             label_text = pydantic_field.field_info.title or label_text
             placeholder = pydantic_field.field_info.description or ''
             if placeholder:
@@ -109,13 +115,20 @@ class Form(Stack):
         else:
             control_type = self.from_data_type_to_form_control.get(attribute_type.__name__, Textbox)
             control = control_type(label=label_text, value=value)
-            if control_type is Textbox:
+            if control_type in (DatePicker, Dropdown, Textbox):
                 control.placeholder = placeholder
 
-        self.fields[attribute] = control
+        if self.control_style == 'line':
+            try:
+                control.underlined = True
+                control.borderless = True
+            except AttributeError:
+                pass
+
+        self._fields[attribute] = control
 
         message = Message(value=error_message, type='error', visible=False)
-        self.messages[attribute] = message
+        self._messages[attribute] = message
 
         return Stack(
             controls=[
@@ -130,24 +143,24 @@ class Form(Stack):
 
     def _validate_value(self, attribute):
         is_valid = True
-        control = self.fields[attribute]
+        control = self._fields[attribute]
 
         try:
             setattr(self.value, attribute, control.value)
         except ValueError:
-            self.messages[attribute].visible = True
+            self._messages[attribute].visible = True
             is_valid = False
         else:
-            self.messages[attribute].visible = False
-            if pydantic_field := self.pydantic_fields.get(attribute):
+            self._messages[attribute].visible = False
+            if pydantic_field := self._pydantic_fields.get(attribute):
                 value, error = pydantic_field.validate(
                     control.value,
                     self.value.dict(),
                     loc=attribute,
-                    cls=self.model,
+                    cls=self._model,
                 )
                 if error:
-                    self.messages[attribute].visible = True
+                    self._messages[attribute].visible = True
                     is_valid = False
                 else:
                     print(attribute, value)
@@ -159,11 +172,11 @@ class Form(Stack):
         return is_valid
 
     def _submit(self, e):
-        if not all(self._validate_value(attribute) for attribute in self.fields):
+        if not all(self._validate_value(attribute) for attribute in self._fields):
             self._form_not_valid_message.visible = True
             self.page.update()
             time.sleep(5)
             self._form_not_valid_message.visible = False
             self.page.update()
         elif self.on_submit:
-            self.on_submit(self)
+            self.on_submit(ControlEvent(self._submit_button, 'submit', None, self, self.page))

@@ -8,6 +8,8 @@ import pydantic
 from typing import Union, Literal
 
 import pglet
+from pglet import Text
+from pglet.control_event import ControlEvent
 
 from form import Form
 
@@ -55,23 +57,29 @@ class PydanticDataModel(pydantic.BaseModel):
 
 class FormTestApp():
     def __init__(self, page):
+        self.page = page
         self.view = pglet.Tabs(
             width="min(600px, 90%)",
             tabs=[
                 pglet.Tab(
                     text="Pydantic form",
                     controls=[
-                        Form(value=PydanticDataModel(), page=page),
+                        Form(value=PydanticDataModel(), control_style="line", on_submit=self.on_submit, page=page),
                     ],
                 ),
                 pglet.Tab(
                     text="Dataclass form",
                     controls=[
-                        Form(value=DataclassDataModel(), page=page),
+                        Form(value=DataclassDataModel(), on_submit=self.on_submit, page=page),
                     ],
                 ),
             ],
         )
+
+    def on_submit(self, event: ControlEvent):
+        self.page.add(pglet.Dialog(open=True, title="Submitted data", blocking=True, controls=[
+            Text(value=str(event.control.value))
+        ]))
 
 
 def main(page):
