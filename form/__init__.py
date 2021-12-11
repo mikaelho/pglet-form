@@ -1,3 +1,4 @@
+import datetime
 import time
 
 from functools import partial
@@ -57,22 +58,24 @@ class Form(Stack):
         
         self.fields = {}
         self.messages = {}
+        self.pydantic_fields = {}
 
         self.on_submit = getattr(submit_button, 'on_click', on_submit)
 
-        submit_button = submit_button or Button(text='OK', primary=True, icon='OK')
+        self._submit_button = submit_button or Button(text="OK", primary=True, icon="CheckMark")
+        self._submit_button.on_click = self._submit
 
-        submit_button.on_click = self._submit
+        self._form_not_valid_message = Message(value="Not all fields are valid", type="error", visible=False)
 
-        self.controls = self._create_controls() + [submit_button]
+        self._create_controls()
 
     def _create_controls(self):
-        return [
+        self.controls = [
             self._create_control(attribute, attribute_type)
             for attribute, attribute_type in self.model.__annotations__.items()
-        ]
+        ] + [self._submit_button, self._form_not_valid_message]
 
-    def _create_control(self, attribute: str, attribute_type: Any):
+    def _create_control(self, attribute: str, attribute_type: Any, label=True):
         if (origin := getattr(attribute_type, '__origin__', None)) and origin == Union:
             attribute_type = attribute_type.__args__[0]
 
@@ -85,14 +88,13 @@ class Form(Stack):
         pydantic_field = hasattr(self.model, '__fields__') and self.value.__fields__.get(attribute) or None
 
         if pydantic_field:
+            self.pydantic_fields[attribute] = pydantic_field
             label_text = pydantic_field.field_info.title or label_text
             placeholder = pydantic_field.field_info.description or ''
             if placeholder:
                 error_message = placeholder
 
-        validate_func = partial(
-            self._validate_value, attribute, attribute_type, pydantic_field
-        )
+        validate_func = partial(self._handle_field_submit_event, attribute)
 
         if type(attribute_type).__name__ == 'EnumMeta':
             control = ChoiceGroup(
@@ -115,7 +117,7 @@ class Form(Stack):
         message = Message(value=error_message, type='error', visible=False)
         self.messages[attribute] = message
 
-        submit_wrapper = Stack(
+        return Stack(
             controls=[
                 control,
                 message,
@@ -123,34 +125,45 @@ class Form(Stack):
             on_submit=validate_func,
         )
 
-        return submit_wrapper
+    def _handle_field_submit_event(self, attribute, event):
+        self._validate_value(attribute)
 
-    def _validate_value(self, attribute, attribute_type, pydantic_field, e):
+    def _validate_value(self, attribute):
+        is_valid = True
         control = self.fields[attribute]
-        setattr(self.value, attribute, control.value)
-        print('set', attribute, control.value)
-        if pydantic_field:
-            value, error = pydantic_field.validate(
-                control.value,
-                self.value.dict(),
-                loc=attribute,
-                cls=self.model,
-            )
-            if error:
-                self.messages[attribute].visible = True
-            else:
-                self.messages[attribute].visible = False
-                control.value = value
-            self.page.update()
-            time.sleep(10)
+
+        try:
+            setattr(self.value, attribute, control.value)
+        except ValueError:
+            self.messages[attribute].visible = True
+            is_valid = False
+        else:
             self.messages[attribute].visible = False
-            self.page.update()
+            if pydantic_field := self.pydantic_fields.get(attribute):
+                value, error = pydantic_field.validate(
+                    control.value,
+                    self.value.dict(),
+                    loc=attribute,
+                    cls=self.model,
+                )
+                if error:
+                    self.messages[attribute].visible = True
+                    is_valid = False
+                else:
+                    print(attribute, value)
+                    if type(value) is datetime.date:
+                        value = value.isoformat()
+                    control.value = value
+
+        self.page.update()
+        return is_valid
 
     def _submit(self, e):
-        try:
-            self.model(**self.value.asdict())
-        except Exception as error:
-            print('Ah no!', error)
-        else:
-            if self.on_submit:
-                self.on_submit(self)
+        if not all(self._validate_value(attribute) for attribute in self.fields):
+            self._form_not_valid_message.visible = True
+            self.page.update()
+            time.sleep(5)
+            self._form_not_valid_message.visible = False
+            self.page.update()
+        elif self.on_submit:
+            self.on_submit(self)
