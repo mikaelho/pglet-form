@@ -26,35 +26,52 @@ class ContactOptions(str, Enum):
     PHONE = 'phone'
 
 
+non_empty_str = pydantic.constr(strip_whitespace=True, min_length=1)
+
 class PydanticDataModel(pydantic.BaseModel):
-    name: str = 'Demo Person'
-    birthdate: date = '2000-01-01'
-    address: str = 'Some Street 1, Some Town, Some Country'
+    name: non_empty_str = "Demo Person"
+    birthdate: date = "2000-01-01"
+    address: non_empty_str = "Some Street 1, Some Town, Some Country"
     temperature: float = 37.0
     happy_today: bool = pydantic.Field(default=True, title='Am I happy today?')
     contact_preference: ContactOptions = ContactOptions.EMAIL
-    email: Union[pydantic.EmailStr, Literal[""]] = pydantic.Field(default='',
+    email: Union[pydantic.EmailStr, Literal[""]] = pydantic.Field(
+        default="",
         description='Give a valid email address',
     )
-    phone: str = pydantic.Field(default='', regex='^[\d ()+-]*?$')
+    phone: str = pydantic.Field(default="", regex="^[\d ()+-]*?$", description="Only numbers and ()+- allowed")
 
     @pydantic.validator('email', pre=True)
-    def field_for_preference_is_filled(cls, value, values):
+    def email_is_filled_if_selected(cls, value, values):
         if values.get('contact_preference') == ContactOptions.EMAIL and not value:
-            raise ValueError('foo')
-        return value   
+            raise ValueError('Please fill in an email address')
+        return value
 
+    @pydantic.validator('phone', pre=True)
+    def phone_is_filled_if_selected(cls, value, values):
+        if values.get('contact_preference') == ContactOptions.PHONE and not value:
+            raise ValueError('Please fill in a phone number')
+        return value
 
 class FormTestApp():
     def __init__(self, page):
-        self.view = pglet.Tabs(tabs=[
-            pglet.Tab(text='Pydantic form', controls=[
-                Form(value=PydanticDataModel(), page=page),
-            ]),
-            pglet.Tab(text='Dataclass form', controls=[
-                Form(value=DataclassDataModel(), page=page),
-            ]),
-        ])
+        self.view = pglet.Tabs(
+            width="min(600px, 90%)",
+            tabs=[
+                pglet.Tab(
+                    text="Pydantic form",
+                    controls=[
+                        Form(value=PydanticDataModel(), page=page),
+                    ],
+                ),
+                pglet.Tab(
+                    text="Dataclass form",
+                    controls=[
+                        Form(value=DataclassDataModel(), page=page),
+                    ],
+                ),
+            ],
+        )
 
 
 def main(page):
