@@ -1,3 +1,4 @@
+import copy
 import datetime
 import time
 from functools import partial
@@ -47,13 +48,13 @@ class ListControl(Stack):
         ]
 
     def list_selection(self, item, event):
-        subform = Form(value=item, on_submit = self._handle_subform_submit_event)
+        subform = Form(value=item, on_submit=self._handle_subform_submit_event)
         self.panel = Panel(
             open=True,
             type='custom',
             auto_dismiss=True,
             light_dismiss=True,
-            title="Subform",
+            title=type(item).__name__.capitalize(),
             controls=[subform],
             on_dismiss=self._handle_subform_dismiss_event
         )
@@ -63,12 +64,12 @@ class ListControl(Stack):
 
     def _handle_subform_submit_event(self, event):
         self.panel.open = False
-        self.panel.update()
+        #self.panel.update()
         self._handle_subform_dismiss_event(event)
 
     def _handle_subform_dismiss_event(self, event):
         self.update()
-        # self.page.update()
+        self.page.update()
         # self.page.remove(self.panel)
 
 
@@ -127,8 +128,8 @@ class Form(Stack):
         on_submit: callable = None,
         submit_button: Button = None,
         field_validation_default_error_message: str = "Check this value",
-        form_valdation_error_message: str = "Not all fields have valid values",
-        form_style: str = "columns",
+        form_validation_error_message: str = "Not all fields have valid values",
+        autosave: bool = False,
         label_alignment: str = "left",
         label_width: str = "30%",
         control_style: str = "normal",
@@ -139,8 +140,8 @@ class Form(Stack):
     ):
         super().__init__(**kwargs)
         self.field_validation_default_error_message = field_validation_default_error_message
-        self.form_validation_error_message = form_valdation_error_message
-        self.form_style = form_style
+        self.form_validation_error_message = form_validation_error_message
+        self.autosave = autosave
         self.label_alignment = label_alignment
         self.label_width = label_width
         self.control_style = control_style
@@ -160,6 +161,8 @@ class Form(Stack):
         else:
             self._model = type(value)
             self.value = value
+
+        self.working_copy = self.autosave and self.value or copy.deepcopy(self.value)
         
         self._fields = {}
         self._messages = {}
@@ -191,7 +194,7 @@ class Form(Stack):
         control_data = SimpleNamespace(
             attribute=attribute,
             attribute_type=attribute_type,
-            value=getattr(self.value, attribute),
+            value=getattr(self.working_copy, attribute),
             label_text=attribute.replace("_", " ").capitalize(),
             placeholder="",
             error_message=self.field_validation_default_error_message,
@@ -292,28 +295,28 @@ class Form(Stack):
         is_valid = True
         control = self._fields[attribute]
 
-        try:
-            setattr(self.value, attribute, control.value)
-        except ValueError:
-            self._messages[attribute].visible = True
-            is_valid = False
-        else:
-            self._messages[attribute].visible = False
-            if pydantic_field := self._pydantic_fields.get(attribute):
-                value, error = pydantic_field.validate(
-                    control.value,
-                    self.value.dict(),
-                    loc=attribute,
-                    cls=self._model,
-                )
-                if error:
-                    self._messages[attribute].visible = True
-                    is_valid = False
-                else:
-                    if type(value) is datetime.date:
-                        value = value.isoformat()
-                    control.value = value
+        if pydantic_field := self._pydantic_fields.get(attribute):
+            value, error = pydantic_field.validate(
+                control.value,
+                self.working_copy.dict(),
+                loc=attribute,
+                cls=self._model,
+            )
+            if error:
+                is_valid = False
+            else:
+                # Validation can change the value, update control
+                if type(value) is datetime.date:
+                    value = value.isoformat()
+                control.value = value
 
+        if is_valid:
+            try:
+                setattr(self.working_copy, attribute, control.value)
+            except ValueError:
+                is_valid = False
+
+        self._messages[attribute].visible = not is_valid
         self.page.update()
         return is_valid
 
@@ -325,5 +328,8 @@ class Form(Stack):
             time.sleep(5)
             self._form_not_valid_message.visible = False
             self.page.update()
-        elif self.on_submit:
-            self.on_submit(ControlEvent(self._submit_button, 'submit', None, self, self.page))
+        else:
+            if not self.autosave:
+                self.value.__dict__.update(self.working_copy.__dict__)
+            if self.on_submit:
+                self.on_submit(ControlEvent(self._submit_button, 'submit', None, self, self.page))

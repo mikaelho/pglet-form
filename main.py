@@ -33,10 +33,19 @@ class ContactOptions(str, Enum):
     PHONE = 'phone'
 
 
+class Actor(pydantic.BaseModel):
+    name: str = ""
+    famous_for: str = ""
+
+    def __str__(self):
+        return self.name
+
+
 class Movie(pydantic.BaseModel):
     title: non_empty_str = ""
     director: str = ""
     year: int = 2000
+    actors: List[Actor] = list()
 
     def __str__(self):
         return f"{self.title} ({self.year})"
@@ -57,7 +66,9 @@ class PydanticDataModel(pydantic.BaseModel):
     phone: str = pydantic.Field(default="", regex="^[\d ()+-]*?$", description="Only numbers and ()+- allowed")
     movies: List[Movie] = [
         Movie(title="My Little Pony: The Movie", director="Jayson Thiessen", year=2017),
-        Movie(title="The Name of the Rose", director="Jean-Jacques Annaud", year=1986),
+        Movie(title="The Name of the Rose", director="Jean-Jacques Annaud", year=1986, actors=[
+            Actor(name="Sean Connery", famous_for="Roles as James Bond, Jones senior"),
+        ]),
     ]
 
     @pydantic.validator('email', pre=True)
@@ -82,10 +93,7 @@ class FormTestApp():
                 pglet.Tab(
                     text="Pydantic form",
                     controls=[
-                        Form(
-                            value=PydanticDataModel(),
-                            on_submit=self.on_submit,
-                        ),
+                        Form(value=PydanticDataModel(), on_submit=self.on_submit),
                     ],
                 ),
                 pglet.Tab(
