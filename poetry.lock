@@ -35,7 +35,7 @@ python-versions = ">=3.5"
 
 [[package]]
 name = "pglet"
-version = "0.4.6"
+version = "0.4.7"
 description = "Pglet client for Python - easily build interactive web apps in Python"
 category = "main"
 optional = false
@@ -84,8 +84,8 @@ idna = [
     {file = "idna-3.3.tar.gz", hash = "sha256:9d643ff0a55b762d5cdb124b8eaa99c66322e2157b69160bc32796e824360e6d"},
 ]
 pglet = [
-    {file = "pglet-0.4.6-py3-none-any.whl", hash = "sha256:c15b4368d70626497def005bcba1a61c1ff05a445e2187dd26464c4538b0161f"},
-    {file = "pglet-0.4.6.tar.gz", hash = "sha256:6be5a98d80c2b74f8e319fe198c06ec3471985fab5988e5c2c5c71694bbe4c7c"},
+    {file = "pglet-0.4.7-py3-none-any.whl", hash = "sha256:b6ba1218f9e547be65bcedd9be787b5aa36f06d212365c9ac2e8f37dd982e360"},
+    {file = "pglet-0.4.7.tar.gz", hash = "sha256:d73747de36053facc72a183b18bc94d1124321ee732bf232160e8dadc5ca3358"},
 ]
 pydantic = [
     {file = "pydantic-1.8.2-cp36-cp36m-macosx_10_9_x86_64.whl", hash = "sha256:05ddfd37c1720c392f4e0d43c484217b7521558302e7069ce8d318438d297739"},
