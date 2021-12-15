@@ -25,10 +25,11 @@ __all__ = ["Form"]
 
 class ListControl(Stack):
 
-    def __init__(self, value, panel_width=None, gap=0, **kwargs):
+    def __init__(self, value, attribute_type, panel_width=None, gap=0, **kwargs):
         super().__init__(**kwargs)
         self.gap = gap
         self.value = value
+        self.attribute_type = attribute_type
         self.panel_width = panel_width
         self.panel = None
         self.panel_holder = Stack()
@@ -37,14 +38,16 @@ class ListControl(Stack):
     def update(self):
         self.controls = [
             Stack(
+                gap=0,
                 horizontal=True,
                 border_top="1px solid lightgray",
                 controls=[
                     Button(width="100%", text=str(item), action=True, on_click=partial(self.list_selection, item)),
+                    Button(height="100%", icon="Delete", on_click=partial(self.list_delete, index)),
                     Button(height="100%", icon="ChevronRight", on_click=partial(self.list_selection, item)),
                 ],
             )
-            for item in self.value
+            for index, item in enumerate(self.value)
         ] + [self.panel_holder]
 
     def list_selection(self, item, event):
@@ -62,6 +65,17 @@ class ListControl(Stack):
             self.panel.width = self.panel_width
         self.panel_holder.controls.append(self.panel)
         self.panel_holder.update()
+
+    def list_delete(self, index, event):
+        del self.value[index]
+        self.update()
+        self.page.update()
+
+    def list_add(self, event):
+        self.value.append(self.attribute_type())
+        self.update()
+        self.page.update()
+        self.list_selection(self.value[-1], event)
 
     def _handle_subform_submit_event(self, event):
         self.update()
@@ -205,9 +219,12 @@ class Form(Stack):
         handle_change_func = partial(self._handle_field_submit_event, attribute)
 
         control = None
+        is_list = False
 
         if origin == list and len(attribute_type.__args__) == 1:
+            control_data.attribute_type = attribute_type.__args__[0]
             control = self._create_list_control(control_data)
+            is_list = True
         elif type(attribute_type).__name__ == "EnumMeta":
             control = self._create_multiple_choice_control(control_data)
         else:
@@ -242,16 +259,22 @@ class Form(Stack):
         if hasattr(control, "label"):
             control.label = None
 
+        label_text = Text(
+            value=control_data.label_text,
+            width="100%",
+            bold=True,
+            align=self.label_alignment,
+            vertical_align=self._label_alignment_by_control_type[type(control)],
+        )
+        label_stack = Stack(horizontal=True, controls=[label_text], width="30%")
+
+        if is_list:
+            label_stack.controls.append(Button(icon="Add", on_click=control.list_add))
+
         return Stack(
             horizontal=True,
             controls=[
-                Text(
-                    value=control_data.label_text,
-                    width="30%",
-                    bold=True,
-                    align=self.label_alignment,
-                    vertical_align=self._label_alignment_by_control_type[type(control)],
-                ),
+                label_stack,
                 control_stack,
             ],
         )
@@ -286,7 +309,7 @@ class Form(Stack):
         )
 
     def _create_list_control(self, control_data):
-        return ListControl(value=control_data.value, panel_width=self.width)
+        return ListControl(value=control_data.value, attribute_type=control_data.attribute_type, panel_width=self.width)
 
     def _handle_field_submit_event(self, attribute, event):
         self._validate_value(attribute)

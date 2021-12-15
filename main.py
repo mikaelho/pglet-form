@@ -87,7 +87,7 @@ class FormTestApp():
     def __init__(self, page):
         self.page = page
         self.view = pglet.Tabs(
-            width="min(600px, 90%)",
+            width="min(800px, 90%)",
             padding=20,
             tabs=[
                 pglet.Tab(
