@@ -23,7 +23,6 @@ from pglet.control_event import ControlEvent
 
 __all__ = ["Form"]
 
-
 class ListControl(Stack):
 
     def __init__(self, value, panel_width=None, gap=0, **kwargs):
@@ -32,6 +31,7 @@ class ListControl(Stack):
         self.value = value
         self.panel_width = panel_width
         self.panel = None
+        self.panel_holder = Stack()
         self.update()
 
     def update(self):
@@ -45,14 +45,14 @@ class ListControl(Stack):
                 ],
             )
             for item in self.value
-        ]
+        ] + [self.panel_holder]
 
     def list_selection(self, item, event):
         subform = Form(value=item, on_submit=self._handle_subform_submit_event)
         self.panel = Panel(
             open=True,
             type='custom',
-            auto_dismiss=True,
+            auto_dismiss=False,
             light_dismiss=True,
             title=type(item).__name__.capitalize(),
             controls=[subform],
@@ -60,17 +60,17 @@ class ListControl(Stack):
         )
         if self.panel_width:
             self.panel.width = self.panel_width
-        self.page.add(self.panel)
+        self.panel_holder.controls.append(self.panel)
+        self.panel_holder.update()
 
     def _handle_subform_submit_event(self, event):
-        self.panel.open = False
-        #self.panel.update()
+        self.update()
+        self.page.update()
         self._handle_subform_dismiss_event(event)
 
     def _handle_subform_dismiss_event(self, event):
-        self.update()
-        self.page.update()
-        # self.page.remove(self.panel)
+        self.panel_holder.controls.pop()
+        self.panel_holder.update()
 
 
 class Form(Stack):
@@ -322,11 +322,16 @@ class Form(Stack):
 
     def _submit(self, e):
         if not all(self._validate_value(attribute) for attribute in self._fields):
-            self._form_not_valid_message.value = self.form_validation_error_message
-            self._form_not_valid_message.visible = True
+            # self._form_not_valid_message.value = self.form_validation_error_message
+            # self._form_not_valid_message.visible = True
+            self._submit_button.primary = False
+            original_icon = self._submit_button.icon
+            self._submit_button.icon = "Cancel"
             self.page.update()
             time.sleep(5)
-            self._form_not_valid_message.visible = False
+            # self._form_not_valid_message.visible = False
+            self._submit_button.primary = True
+            self._submit_button.icon = "CheckMark"
             self.page.update()
         else:
             if not self.autosave:
