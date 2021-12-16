@@ -1,14 +1,12 @@
-import traceback
 from dataclasses import dataclass
 from datetime import date
 from enum import Enum
 from typing import List
-
-import pydantic
-
-from typing import Union, Literal
+from typing import Literal
+from typing import Union
 
 import pglet
+import pydantic
 from pglet import Text
 from pglet.control_event import ControlEvent
 
@@ -27,6 +25,12 @@ class DataclassDataModel:
 
 non_empty_str = pydantic.constr(strip_whitespace=True, min_length=1)
 
+
+class Address(pydantic.BaseModel):
+    address_line: str = ""
+    city: str = ""
+    postal_code: str = ""
+    country: str = ""
 
 class ContactOptions(str, Enum):
     EMAIL = 'email'
@@ -55,7 +59,9 @@ class PydanticDataModel(pydantic.BaseModel):
     title: str = ""
     name: non_empty_str = "Demo Person"
     birthdate: date = "2000-01-01"
-    address: non_empty_str = "Some Street 1, Some Town, Some Country"
+    address: Address = Address(
+        address_line="Some Street 1", city="Some City", postal_code="12345", country="Some Country"
+    )
     temperature: float = 37.0
     happy_today: bool = pydantic.Field(default=True, title='Am I happy today?')
     contact_preference: ContactOptions = ContactOptions.EMAIL
@@ -112,7 +118,7 @@ class FormTestApp():
 
 
 def main(page):
-    page.title = "Form test"
+    page.title = "Form demo"
     page.horizontal_align = 'center'
     page.theme = 'light'
     app = FormTestApp(page)

@@ -1,6 +1,7 @@
 import copy
 import datetime
 import time
+from dataclasses import is_dataclass
 from functools import partial
 from types import SimpleNamespace
 from typing import Any
@@ -144,6 +145,7 @@ class Form(Stack):
         field_validation_default_error_message: str = "Check this value",
         form_validation_error_message: str = "Not all fields have valid values",
         autosave: bool = False,
+        label_above: bool = False,
         label_alignment: str = "left",
         label_width: str = "30%",
         control_style: str = "normal",
@@ -156,6 +158,7 @@ class Form(Stack):
         self.field_validation_default_error_message = field_validation_default_error_message
         self.form_validation_error_message = form_validation_error_message
         self.autosave = autosave
+        self.label_above = label_above
         self.label_alignment = label_alignment
         self.label_width = label_width
         self.control_style = control_style
@@ -192,15 +195,18 @@ class Form(Stack):
         self._create_controls()
 
     def _create_controls(self):
-        controls = [
-            self._create_control(attribute, attribute_type)
-            for attribute, attribute_type in self._model.__annotations__.items()
-        ]
+        controls = self._create_controls_for_annotations(self.working_copy, self._model, self.label_above)
         self.controls = controls + [
             Stack(horizontal=True, horizontal_align="end", controls=[self._form_not_valid_message, self._submit_button])
         ]
 
-    def _create_control(self, attribute: str, attribute_type: Any):
+    def _create_controls_for_annotations(self, obj, cls, label_above):
+        return [
+            self._create_control(attribute, attribute_type, getattr(obj, attribute), label_above)
+            for attribute, attribute_type in cls.__annotations__.items()
+        ]
+
+    def _create_control(self, attribute: str, attribute_type: Any, value: Any, label_above: bool):
         # For unions, we consider only the first type annotation
         if (origin := getattr(attribute_type, '__origin__', None)) and origin == Union:
             attribute_type = attribute_type.__args__[0]
@@ -208,13 +214,13 @@ class Form(Stack):
         control_data = SimpleNamespace(
             attribute=attribute,
             attribute_type=attribute_type,
-            value=getattr(self.working_copy, attribute),
+            value=value,
             label_text=attribute.replace("_", " ").capitalize(),
             placeholder="",
             error_message=self.field_validation_default_error_message,
         )
 
-        control_data = self._check_pydantic_overrides(control_data)
+        control_data = self._apply_pydantic_overrides(control_data)
 
         handle_change_func = partial(self._handle_field_submit_event, attribute)
 
@@ -227,6 +233,8 @@ class Form(Stack):
             is_list = True
         elif type(attribute_type).__name__ == "EnumMeta":
             control = self._create_multiple_choice_control(control_data)
+        elif self._is_complex_object(attribute_type):
+            control = self._create_complex_control(control_data)
         else:
             control = self._create_basic_control(control_data)
 
@@ -266,20 +274,32 @@ class Form(Stack):
             align=self.label_alignment,
             vertical_align=self._label_alignment_by_control_type[type(control)],
         )
-        label_stack = Stack(horizontal=True, controls=[label_text], width="30%")
+        if label_above:
+            label_text.italic = True
+
+        label_stack = Stack(horizontal=True, controls=[label_text])
+        if not label_above:
+            label_stack.width = self.label_width
 
         if is_list:
             label_stack.controls.append(Button(icon="Add", on_click=control.list_add))
 
-        return Stack(
-            horizontal=True,
+        attribute_stack = Stack(
             controls=[
                 label_stack,
                 control_stack,
             ],
         )
 
-    def _check_pydantic_overrides(self, control_data):
+        if not label_above:
+            attribute_stack.horizontal = True
+
+        return attribute_stack
+
+    def _is_complex_object(self, object_type: type):
+        return is_dataclass(object_type) or hasattr(object_type, "__fields__")
+
+    def _apply_pydantic_overrides(self, control_data):
         pydantic_field = (
             hasattr(self._model, "__fields__") and self.value.__fields__.get(control_data.attribute) or None
         )
@@ -306,6 +326,14 @@ class Form(Stack):
         return ChoiceGroup(
             options=[choicegroup.Option(key=option.value, text=option.value.title()) for option in enum_type],
             value=enum_type(control_data.value).value,
+        )
+
+    def _create_complex_control(self, control_data):
+        return Stack(
+            width="100%",
+            controls=self._create_controls_for_annotations(
+                control_data.value, control_data.attribute_type, label_above=True
+            ),
         )
 
     def _create_list_control(self, control_data):
