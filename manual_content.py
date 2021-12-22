@@ -120,6 +120,39 @@ data_first_forms.display_name = "Data-first forms"
 content.append(data_first_forms)
 
 
+def styling_and_dimensions():
+    """
+    Form is a Stack control, and inherits all the
+    [attributes of Stacks](https://pglet.io/docs/controls/stack#properties).
+
+    You can toggle the switch on the left to experiment with the light and dark themes.
+
+    Example below shows one alternative general style, with underlined text boxes.
+
+    [code]
+    """
+
+    @dataclass
+    class DataclassDataModel:
+        name: str = "Dataclass Person"
+        birthdate: datetime.date = "2000-01-01"
+        address: str = "Some Street 1, Some Town, Some Country"
+        age: int = 33
+        happy_today: bool = True
+        email: str = "some@email.com"
+
+    form = Form(
+        value=DataclassDataModel,
+        control_style="line",
+        width="100%",
+        on_submit=show_submitted_data,
+    )
+
+    return form
+
+content.append(styling_and_dimensions)
+
+
 def selection_values():
     """
     Python enums are supported for selecting from a specific set of values.
