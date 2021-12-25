@@ -105,13 +105,10 @@ class Form(Stack):
 
         if type(value) is type:
             self._model = value
-            if hasattr(self._model, "__fields__"):
-                self.value = self._model.construct()
-            else:
-                try:
-                    self.value = self._model()
-                except Exception as error:
-                    raise ValueError("Unable to instantiate form data with default values", error)
+            try:
+                self.value = self._model()
+            except Exception as error:
+                raise ValueError("Unable to instantiate form data with default values", error)
         else:
             self._model = type(value)
             self.value = value
@@ -296,11 +293,15 @@ class Form(Stack):
     def _validate_value(self, attribute):
         is_valid = True
         control = self._fields[attribute]
+        message = self._messages[attribute]
+        message.value = self.field_validation_default_error_message
 
         if type(control) is Stack:
             return True
 
         if pydantic_field := self._pydantic_fields.get(attribute):
+            if description := pydantic_field.field_info.description:
+                message.value = description
             value, error = pydantic_field.validate(
                 control.value,
                 self.working_copy.dict(),
@@ -308,8 +309,8 @@ class Form(Stack):
                 cls=self._model,
             )
             if error:
-                print("NOT", attribute)
                 is_valid = False
+                message.value = str(error.exc).capitalize()
             else:
                 # Validation can change the value, update control
                 if type(value) is datetime.date:

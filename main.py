@@ -21,7 +21,7 @@ class FormDemoApp:
 
         self.title = Text(bold=True, size="xLarge", width="100%", color="themePrimary")
         self.body = Text(markdown=True, width="100%", padding=0)
-        self.result = Stack(vertical_align="center", width="max(400px, 60%)")
+        self.result = Stack(width="max(400px, 60%)", margin="100px 0px 0px 0px")
 
         self.mode_toggle = Toggle(value=True, label="Dark mode", on_change=self.set_mode)
 
@@ -115,7 +115,7 @@ class FormDemoApp:
         self.title.value = self.display_name(document_function)
         self.body.value = self.get_body_text(document_function)
         self.result.clean()
-        if control := document_function():
+        if control := document_function(None):
             control.border = "1px solid"
             self.result.controls = [control]
         self.page.update()
@@ -130,11 +130,12 @@ class FormDemoApp:
 
     def get_body_text(self, document_function):
         body = inspect.getdoc(document_function)
+
         code = "\n".join(inspect.getsource(document_function).split('"""')[2].splitlines()[:-1])
         code = dedent(code).strip()
         code = f"```\n{code}\n```"
 
-        body = body.replace("[code]", code)
+        body = body.replace("[code]", code) if "[code]" in body else f"{body}\n{code}"
 
         return body
 
@@ -145,7 +146,6 @@ class FormDemoApp:
             return document_function.__name__.replace("_", " ").capitalize()
 
     def set_mode(self, event=None):
-        print(self.mode_toggle.value)
         self.page.theme = "dark" if self.mode_toggle.value else "light"
         self.page.update()
 
