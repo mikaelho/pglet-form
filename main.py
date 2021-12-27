@@ -16,8 +16,8 @@ class FormDemoApp:
         self.page = None
 
         self.table_of_contents = Stack(gap=0, controls=self.get_controls_for_table_of_contents())
-        self.previous_button = Button(icon="ChevronUp", on_click=partial(self.change, -1))
-        self.next_button = Button(icon="ChevronDown", on_click=partial(self.change, +1))
+        self.previous_button = Button(icon="ChevronUp", on_click=partial(self.navigate, -1))
+        self.next_button = Button(icon="ChevronDown", on_click=partial(self.navigate, +1))
 
         self.title = Text(bold=True, size="xLarge", width="100%", color="themePrimary")
         self.body = Text(markdown=True, width="100%", padding=0)
@@ -78,7 +78,7 @@ class FormDemoApp:
             )
         )
 
-        self.change(-1)
+        self.navigate(0)
 
         page.horizontal_align = "center"
         self.set_mode()
@@ -94,16 +94,24 @@ class FormDemoApp:
                         action=True,
                         text=self.display_name(func),
                         icon="CircleRing",
-                        on_click=partial(self.display, func),
+                        on_click=partial(self.display_menu_item, func),
                     )
                 ],
             )
             for func in content
         ]
 
-    def display(self, document_function, event=None):
+    def display_menu_item(self, document_function, event=None):
         self.selected_index = content.index(document_function)
-        self.display_function(document_function)
+        self.navigate(0)
+
+    def navigate(self, delta, event=None):
+        self.selected_index = max(0, min(len(content) - 1, self.selected_index + delta))
+
+        self.previous_button.disabled = self.selected_index == 0
+        self.next_button.disabled = self.selected_index == (len(content) - 1)
+
+        self.display_function(content[self.selected_index])
 
     def display_function(self, document_function):
         for control in self.table_of_contents.controls:
@@ -120,22 +128,21 @@ class FormDemoApp:
             self.result.controls = [control]
         self.page.update()
 
-    def change(self, delta, event=None):
-        self.selected_index = max(0, min(len(content) - 1, self.selected_index + delta))
-
-        self.previous_button.disabled = self.selected_index == 0
-        self.next_button.disabled = self.selected_index == len(content) - 1
-
-        self.display_function(content[self.selected_index])
-
     def get_body_text(self, document_function):
         body = inspect.getdoc(document_function)
 
-        code = "\n".join(inspect.getsource(document_function).split('"""')[2].splitlines()[:-1])
+        source = inspect.getsource(document_function)
+        blocks = source.split('"""')
+        code = "\n".join(blocks[2].splitlines()[:-1])
         code = dedent(code).strip()
         code = f"```\n{code}\n```"
 
-        body = body.replace("[code]", code) if "[code]" in body else f"{body}\n{code}"
+        if "[code]" in body:
+            body = body.replace("[code]", code)
+        elif "[no code]" in body:
+            body = body.replace("[no code]", "")
+        else:
+            body = f"{body}\n{code}"
 
         return body
 

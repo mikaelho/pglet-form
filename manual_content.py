@@ -1,4 +1,6 @@
 import datetime
+from collections import defaultdict
+from dataclasses import asdict
 from dataclasses import dataclass
 from dataclasses import field
 from enum import Enum
@@ -6,13 +8,22 @@ from typing import List
 from typing import Literal
 from typing import Union
 
+from pglet import BarChart
+from pglet import Checkbox
 from pglet import Dialog
+from pglet import Stack
 from pglet import Text
+from pglet.barchart import Point
 from pydantic import BaseModel
 from pydantic import EmailStr
 from pydantic import Field
 
 from form import Form
+
+try:
+    from replit import db
+except ImportError:
+    db = defaultdict(int)
 
 
 class Content:
@@ -102,7 +113,7 @@ class Content:
         @dataclass
         class DataclassDataModel:
             name: str = "Dataclass Person"
-            birthdate: datetime.date = "2000-01-01"
+            birthdate: datetime.datetime = "2000-01-01"
             address: str = "Some Street 1, Some Town, Some Country"
             age: int = 33
             happy_today: bool = True
@@ -126,8 +137,8 @@ class Content:
 
         return form
 
-
     data_first_forms.display_name = "Data-first forms"
+
 
     def styling_and_dimensions(self):
         """
@@ -137,8 +148,10 @@ class Content:
         You can toggle the switch on the left to experiment with the light and dark themes.
 
         Example below shows using:
-        - `control_style` to define an alternative general style, with underlined text boxes, and
-        - a standard Stack attribute `gap` to add space between the lines.
+        - `title` to add a form title at the top,
+        - `control_style` to define an alternative general style, with underlined text boxes,
+        - `toggle_for_bool` to use a toggle instead of a checkbox for boolean values, and
+        - a standard Stack attribute `gap` to add extra space between the lines.
 
         [code]
         """
@@ -154,8 +167,10 @@ class Content:
 
         form = Form(
             value=DataclassDataModel,
+            title="Your information",
             control_style="line",
-            gap=32,
+            toggle_for_bool=True,
+            gap=24,
             width="100%",
             on_submit=show_submitted_data,
         )
@@ -346,6 +361,7 @@ class Content:
 
         class PydanticDataModel(BaseModel):
             name: str = "Pydantic Person"
+            birthdate: datetime.date = "2000-01-01"
             age: conint(ge=0, lt=150) = 0
             email: EmailStr = Field("", description="Enter a valid email address")
 
@@ -376,13 +392,99 @@ class Content:
                 "", description="Valid email needed for newsletter"
             )
 
-            @validator('email', pre=True)
+            @validator('email', pre=True, allow_reuse=True)
             def email_filled_if_needed(cls, value, values):
                 if values.get("newsletter_ok") and not value:
                     raise ValueError("Need email for newsletter")
                 return value
 
         return Form(value=PydanticDataModel(), width=500, on_submit=show_submitted_data)
+
+    cross_field_validation.display_name = "Cross-field validation"
+
+    def status(self):
+        """
+        The status of the Form control is: **early Proof of Concept for discussion and feedback**
+
+        *Some* todo items remain.
+
+        [no code]
+        """
+        todo = '''
+        Lists for basic types
+        Slider option for number ranges
+        Tests
+        Documentation
+        Responsive layout
+        Align/integrate with Grid control
+        Dates with DatePicker
+        '''
+
+        done = '''
+        Toggle as an alternative for Checkbox
+        '''
+
+        return Stack(
+            padding=20,
+            controls=[
+                Checkbox(label=label.strip(), value=False, disabled=True)
+                for label in todo.strip().splitlines()
+            ] + [
+                Checkbox(label=label.strip(), value=True, disabled=True)
+                for label in done.strip().splitlines()
+            ]
+        )
+
+    def grande_finale(self):
+        """
+        As one last thing, let's combine the Form control, replit database utility and the pglet graph control into a
+        quick poll.
+
+        [code]
+
+        The `db` object here is a replit database that is essentially a dict with per-program persistent contents.
+        """
+        @dataclass
+        class PollData:
+            pglet: bool = False
+            python: bool = False
+            pglet_with_python: bool = False
+            pglet_with_some_other_language: bool = False
+            pglet_with_forms: bool = False
+            pydantic: bool = False
+            pydantic_form_validation: bool = False
+
+        chart = BarChart(tooltips=True, padding=20, points=[])
+
+        def update_chart():
+            chart.points.clear()
+            for field in PollData.__annotations__:
+                display_name = field.replace("_", " ").capitalize()
+                chart.points.append(
+                    Point(legend=display_name, x=db[field]),
+                )
+        update_chart()
+
+        def update_db_values(event):
+            value = event.control.value
+            for key, value in asdict(value).items():
+                if value:
+                    db[key] += 1
+
+            update_chart()
+            chart.update()
+
+        poll = Form(
+            value=PollData,
+            title="I am interested in...",
+            on_submit=update_db_values
+        )
+
+        stack = Stack(controls=[poll, chart])
+
+        return stack
+
+    grande_finale.display_name = "Grande Finale"
 
 
 def show_submitted_data(event):

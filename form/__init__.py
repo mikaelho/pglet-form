@@ -9,6 +9,7 @@ from typing import Any
 from typing import Union
 
 from pglet import Button
+from pglet import Checkbox
 from pglet import ChoiceGroup
 from pglet import DatePicker
 from pglet import Dropdown
@@ -31,16 +32,16 @@ class Form(Stack):
     _step_for_floats = 0.1
 
     _float_button = partial(SpinButton, step=_step_for_floats)
-    _date_picker_with_edit = partial(DatePicker, allow_text_input=True)
+    # _date_picker_with_edit = partial(DatePicker, allow_text_input=True)
 
     _standard_library_types = {
         "str": Textbox,
         "int": SpinButton,
         "float": _float_button,
         "Decimal": _float_button,
-        "bool": Toggle,
+        "bool": Checkbox,
         "datetime": Textbox,
-        "date": _date_picker_with_edit,
+        "date": Textbox,
         "time": Textbox,
     }
 
@@ -54,15 +55,15 @@ class Form(Stack):
         "PositiveFloatValue": _float_button,
         "StrictFloatValue": _float_button,
         "ConstrainedDecimalValue": _float_button,
-        "StrictBoolValue": Toggle,
+        "StrictBoolValue": Checkbox,
         "EmailStrValue": Textbox,
-        "PastDateValue": _date_picker_with_edit,
-        "FutureDateValue": _date_picker_with_edit,
+        "PastDateValue": Textbox,
+        "FutureDateValue": Textbox,
         # 'SecretStr': , not supported by pglet
     }
 
-    _from_data_type_to_form_control = _standard_library_types
-    _from_data_type_to_form_control.update(_pydantic_types)
+    _default_data_to_control_mapping = _standard_library_types
+    _default_data_to_control_mapping.update(_pydantic_types)
 
     # Alignments when not "top"
     _label_alignment_by_control_type = {
@@ -74,6 +75,7 @@ class Form(Stack):
     def __init__(
         self,
         value: Any,
+        title: str = None,
         on_submit: callable = None,
         submit_button: Button = None,
         field_validation_default_error_message: str = "Check this value",
@@ -83,6 +85,7 @@ class Form(Stack):
         label_alignment: str = "left",
         label_width: str = "30%",
         control_style: str = "normal",
+        toggle_for_bool: bool = False,
         padding: int = 20,
         gap: int = 10,
         width="min(600px, 90%)",
@@ -90,6 +93,7 @@ class Form(Stack):
         **kwargs,
     ):
         super().__init__(**kwargs)
+        self.title = title
         self.field_validation_default_error_message = field_validation_default_error_message
         self.form_validation_error_message = form_validation_error_message
         self.autosave = autosave
@@ -102,6 +106,12 @@ class Form(Stack):
         self.padding = padding
         self.gap = gap
         self.width = width
+
+        self.data_to_control_mapping = self._default_data_to_control_mapping.copy()
+
+        if toggle_for_bool:
+            self.data_to_control_mapping["bool"] = Toggle
+            self.data_to_control_mapping["StrictBoolValue"] = Toggle
 
         if type(value) is type:
             self._model = value
@@ -129,10 +139,12 @@ class Form(Stack):
         self._create_controls()
 
     def _create_controls(self):
-        controls = self._create_controls_for_annotations(self.working_copy, self._model, self.label_above)
-        self.controls = controls + [
+        title_controls = [Text(value=self.title, bold=True, size="xLarge")] if self.title else []
+        input_controls = self._create_controls_for_annotations(self.working_copy, self._model, self.label_above)
+        button_controls = [
             Stack(horizontal=True, horizontal_align="end", controls=[self._form_not_valid_message, self._submit_button])
         ]
+        self.controls = title_controls + input_controls + button_controls
 
     def _create_controls_for_annotations(self, obj, cls, label_above, path: tuple = tuple()):
         return [
@@ -156,7 +168,7 @@ class Form(Stack):
 
         control_data = self._apply_pydantic_overrides(control_data, path)
 
-        handle_change_func = partial(self._handle_field_submit_event, path + (attribute,))
+        # handle_change_func = partial(self._handle_field_submit_event, path + (attribute,))
 
         is_list = False
 
@@ -175,7 +187,7 @@ class Form(Stack):
         else:
             control = self._create_basic_control(control_data)
 
-        control.on_change = handle_change_func
+        # control.on_change = handle_change_func
 
         if self.control_style == "line":
             try:
@@ -194,7 +206,7 @@ class Form(Stack):
                 control,
                 message,
             ],
-            on_submit=handle_change_func,
+            # on_submit=handle_change_func,
             width="100%",
             vertical_align="center",
         )
@@ -250,7 +262,7 @@ class Form(Stack):
         return control_data
 
     def _create_basic_control(self, control_data):
-        control_type = self._from_data_type_to_form_control.get(control_data.attribute_type.__name__, Textbox)
+        control_type = self.data_to_control_mapping.get(control_data.attribute_type.__name__, Textbox)
         control = control_type(value=control_data.value)
         if control_type in (DatePicker, Dropdown, Textbox):
             control.placeholder = control_data.placeholder
@@ -298,6 +310,10 @@ class Form(Stack):
 
         if type(control) is Stack:
             return True
+        elif type(control) is DatePicker and type(control.value) is datetime.datetime:
+            datetime_tuple = control.value.timetuple()
+            if datetime_tuple[3:6] == (0, 0, 0):
+                control.value = datetime.date(datetime_tuple[:3])
 
         if pydantic_field := self._pydantic_fields.get(attribute):
             if description := pydantic_field.field_info.description:
