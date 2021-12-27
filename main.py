@@ -21,7 +21,7 @@ class FormDemoApp:
 
         self.title = Text(bold=True, size="xLarge", width="100%", color="themePrimary")
         self.body = Text(markdown=True, width="100%", padding=0)
-        self.result = Stack(width="max(400px, 60%)", margin="100px 0px 0px 0px")
+        self.result = Stack(margin="100px 0px 0px 0px")
 
         self.mode_toggle = Toggle(value=True, label="Dark mode", on_change=self.set_mode)
 

@@ -131,7 +131,7 @@ class Content:
 
         form = Form(
             value=DataclassDataModel,
-            width="100%",
+            width=500,
             on_submit=show_data_on_submit
         )
 
@@ -171,7 +171,7 @@ class Content:
             control_style="line",
             toggle_for_bool=True,
             gap=24,
-            width="100%",
+            width=500,
             on_submit=show_submitted_data,
         )
 
@@ -193,7 +193,7 @@ class Content:
             ok_to_contact: bool = True
             contact_option: ContactOption = ContactOption.EMAIL
 
-        return Form(value=DataclassDataModel, width="100%", on_submit=show_submitted_data)
+        return Form(value=DataclassDataModel, width=500, on_submit=show_submitted_data)
 
     def more_values(self):
         """
@@ -212,7 +212,7 @@ class Content:
             ok_to_contact: bool = True
             contact_option: ContactOption = ContactOption.EMAIL
 
-        return Form(value=DataclassDataModel, width="100%", on_submit=show_submitted_data)
+        return Form(value=DataclassDataModel, width=500, on_submit=show_submitted_data)
 
     def nested_class_definitions(self):
         """
@@ -235,7 +235,7 @@ class Content:
                 year=2017,
             )
 
-        return Form(value=DataclassDataModel, width="100%", on_submit=show_submitted_data)
+        return Form(value=DataclassDataModel, width=500, on_submit=show_submitted_data)
 
     def several_nested_objects(self):
         """
@@ -426,6 +426,7 @@ class Content:
 
         return Stack(
             padding=20,
+            width=400,
             controls=[
                 Checkbox(label=label.strip(), value=False, disabled=True)
                 for label in todo.strip().splitlines()
@@ -439,6 +440,8 @@ class Content:
         """
         As one last thing, let's combine the Form control, replit database utility and the pglet graph control into a
         quick poll.
+
+        Please select the options you are interested in and click "OK".
 
         [code]
 
@@ -454,31 +457,51 @@ class Content:
             pydantic: bool = False
             pydantic_form_validation: bool = False
 
-        chart = BarChart(tooltips=True, padding=20, points=[])
+        chart = BarChart(
+            data_mode='fraction',
+            padding=20,
+            width=210,
+            points=[]
+        )
 
         def update_chart():
             chart.points.clear()
-            for field in PollData.__annotations__:
+            values = list(reversed(sorted(
+                [
+                    (field, db[field])
+                    for field in PollData.__annotations__
+                    if field != "answers"
+                ],
+                key=lambda value: value[1]
+            )))
+            max_value = values[0][1]
+            for field, value in values:
                 display_name = field.replace("_", " ").capitalize()
                 chart.points.append(
-                    Point(legend=display_name, x=db[field]),
+                    Point(legend=display_name, x=value, y=max_value),
                 )
         update_chart()
+
+        poll = Form(
+            value=PollData,
+            title="I am interested in...",
+            width=300,
+            label_width="100%",
+            control_width="fit-content",
+        )
 
         def update_db_values(event):
             value = event.control.value
             for key, value in asdict(value).items():
                 if value:
                     db[key] += 1
+            db["answers"] += 1
 
             update_chart()
-            chart.update()
+            poll.submit_button.disabled = True
+            event.control.page.update()
 
-        poll = Form(
-            value=PollData,
-            title="I am interested in...",
-            on_submit=update_db_values
-        )
+        poll.on_submit = update_db_values
 
         stack = Stack(controls=[poll, chart])
 

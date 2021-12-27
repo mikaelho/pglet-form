@@ -83,7 +83,8 @@ class Form(Stack):
         autosave: bool = False,
         label_above: bool = False,
         label_alignment: str = "left",
-        label_width: str = "30%",
+        label_width: Union[int, str] = "30%",
+        control_width: Union[int, str] = "100%",
         control_style: str = "normal",
         toggle_for_bool: bool = False,
         padding: int = 20,
@@ -100,6 +101,7 @@ class Form(Stack):
         self.label_above = label_above
         self.label_alignment = label_alignment
         self.label_width = label_width
+        self.control_width = control_width
         self.control_style = control_style
         self.threshold_for_dropdown = threshold_for_dropdown
 
@@ -131,8 +133,8 @@ class Form(Stack):
 
         self.on_submit = getattr(submit_button, "on_click", on_submit)
 
-        self._submit_button = submit_button or Button(text="OK", primary=True, icon="CheckMark")
-        self._submit_button.on_click = self._submit
+        self.submit_button = submit_button or Button(text="OK", primary=True, icon="CheckMark")
+        self.submit_button.on_click = self._submit
 
         self._form_not_valid_message = Message(value=self.form_validation_error_message, type="error", visible=False)
 
@@ -142,7 +144,7 @@ class Form(Stack):
         title_controls = [Text(value=self.title, bold=True, size="xLarge")] if self.title else []
         input_controls = self._create_controls_for_annotations(self.working_copy, self._model, self.label_above)
         button_controls = [
-            Stack(horizontal=True, horizontal_align="end", controls=[self._form_not_valid_message, self._submit_button])
+            Stack(horizontal=True, horizontal_align="end", controls=[self._form_not_valid_message, self.submit_button])
         ]
         self.controls = title_controls + input_controls + button_controls
 
@@ -207,7 +209,7 @@ class Form(Stack):
                 message,
             ],
             # on_submit=handle_change_func,
-            width="100%",
+            width=self.control_width,
             vertical_align="center",
         )
 
@@ -230,6 +232,7 @@ class Form(Stack):
             label_stack.controls.append(Button(icon="Add", on_click=control.list_add))
 
         attribute_stack = Stack(
+            horizontal_align="right",
             controls=[
                 label_stack,
                 control_stack,
@@ -348,18 +351,18 @@ class Form(Stack):
 
     def _submit(self, e):
         if not all(self._validate_value(attribute) for attribute in self._fields):
-            self._submit_button.primary = False
-            self._submit_button.icon = "Cancel"
+            self.submit_button.primary = False
+            self.submit_button.icon = "Cancel"
             self.page.update()
             time.sleep(5)
-            self._submit_button.primary = True
-            self._submit_button.icon = "CheckMark"
+            self.submit_button.primary = True
+            self.submit_button.icon = "CheckMark"
             self.page.update()
         else:
             if not self.autosave:
                 self.value.__dict__.update(self.working_copy.__dict__)
             if self.on_submit:
-                custom_event = ControlEvent(self._submit_button, "submit", None, self, self.page)
+                custom_event = ControlEvent(self.submit_button, "submit", None, self, self.page)
                 self.on_submit(custom_event)
 
 
