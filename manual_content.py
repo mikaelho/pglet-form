@@ -23,7 +23,7 @@ from form import Form
 try:
     from replit import db
 except ImportError:
-    db = defaultdict(int)
+    db = dict()
 
 
 class Content:
@@ -468,7 +468,7 @@ class Content:
             chart.points.clear()
             values = list(reversed(sorted(
                 [
-                    (field, db[field])
+                    (field, db.get(field, 0))
                     for field in PollData.__annotations__
                     if field != "answers"
                 ],
@@ -494,8 +494,8 @@ class Content:
             value = event.control.value
             for key, value in asdict(value).items():
                 if value:
-                    db[key] += 1
-            db["answers"] += 1
+                    db[key] = db.get("key", 0) + 1
+            db["answers"] = db.get("answers", 0) + 1
 
             update_chart()
             poll.submit_button.disabled = True
