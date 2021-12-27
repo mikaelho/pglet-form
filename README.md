@@ -1,8 +1,8 @@
 # pglet-form
 
-Data-model-driven validated forms for pglet.
+Data-model-driven validated forms for Pglet.
 
-Get a quick start by viewing a demo ("manual") of the Form control on replit.
+Get a quick start by [viewing a demo](https://pglet-form.mikaelho.repl.co/) ("manual") of the Form control on replit.
 
 # Easy web development for Python developers
 
