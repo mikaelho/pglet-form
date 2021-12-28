@@ -17,25 +17,20 @@ of the available languages is Python. The server comes nicely bundled in the ins
 
 and you are off to creating a web-enabled UI in pure Python (3.7+).
 
-As a taste of what pglet-python code looks like, this is the code for the box on the right:
-
-[code]
-```
-pglet.page().add(main_view)
-```
-
-For more details, supported controls and a tutorial, see the [pglet Python docs](https://pglet.io/docs/).
+For supported controls and a tutorial, see the [pglet Python docs](https://pglet.io/docs/).
 
 # Easy forms
 
 One of the most-repeated type of UI is some kind of form for entering and updating information. While creating
-forms is easy in pglet, it is nevertheless a repeating task that provides little programming joy. The next pages
-show how to create forms using a Form control that eats annotated Python classes, for example, Python's
-[dataclasses](https://docs.python.org/3/library/dataclasses.html).
+forms is easy in pglet, it is nevertheless a task that provides little programming joy. The Form control eats 
+annotated Python classes, for example, Python's [dataclasses](https://docs.python.org/3/library/dataclasses.html),
+and creates the form to enter corresponding data.
+
+Form control supports all main data types, lists of data and nested data structures.
 
 # Easy forms with validation
 
-Typically you also need to somehow validate user input before you can use it for anything: you need to check that
+Typically you also need to somehow validate user input before you can use it for anything: check that
 necessary values have been provided, check that numbers are numbers, check dates etc.
 
 You can avoid this repetitive code by giving the Form control a [pydantic](https://pydantic-docs.helpmanual.io/)

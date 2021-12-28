@@ -55,7 +55,7 @@ class Content:
         # Easy forms
 
         One of the most-repeated type of UI is some kind of form for entering and updating information. While creating
-        forms is easy in pglet, it is nevertheless a repeating task that provides little programming joy. The next pages
+        forms is easy in pglet, it is nevertheless a task that provides little programming joy. The next pages
         show how to create forms using a Form control that eats annotated Python classes, for example, Python's
         [dataclasses](https://docs.python.org/3/library/dataclasses.html).
 
