@@ -172,6 +172,7 @@ class Form(Stack):
             kwargs=self.control_kwargs.get(attribute, {}),
         )
 
+        control_data = self._apply_dataclass_overrides(control_data, path)
         control_data = self._apply_pydantic_overrides(control_data, path)
 
         # handle_change_func = partial(self._handle_field_submit_event, path + (attribute,))
@@ -260,6 +261,8 @@ class Form(Stack):
             (metadata := dataclass_field.metadata) and
             metadata.get('pglet', {})
         )
+
+        return control_data
 
     def _apply_pydantic_overrides(self, control_data, path):
         pydantic_field = (

@@ -323,7 +323,7 @@ class Content:
         form = Form(
             value=DataclassDataModel,
             control_kwargs={
-                'notes_too': {'multiline': True}  # <<< 2
+                'description': {'multiline': True}  # <<< 2
             },
             control_mapping={
                 "Amount": partial(  # <<< 3
