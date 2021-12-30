@@ -1,7 +1,6 @@
 import copy
 import datetime
 import time
-import traceback
 from dataclasses import is_dataclass
 from functools import partial
 from types import SimpleNamespace
@@ -38,7 +37,7 @@ class Form(Stack):
         "str": Textbox,
         "int": SpinButton,
         "float": _float_button,
-        "Decimal": _float_button,
+        "Decimal": Textbox,
         "bool": Checkbox,
         "datetime": Textbox,
         "date": Textbox,
@@ -62,8 +61,8 @@ class Form(Stack):
         # 'SecretStr': , not supported by pglet
     }
 
-    _default_data_to_control_mapping = _standard_library_types
-    _default_data_to_control_mapping.update(_pydantic_types)
+    default_data_to_control_mapping = _standard_library_types
+    default_data_to_control_mapping.update(_pydantic_types)
 
     # Alignments when not "top"
     _label_alignment_by_control_type = {
@@ -86,6 +85,8 @@ class Form(Stack):
         label_width: Union[int, str] = "30%",
         control_width: Union[int, str] = "100%",
         control_style: str = "normal",
+        control_kwargs: dict = None,
+        control_mapping: dict = None,
         toggle_for_bool: bool = False,
         padding: int = 20,
         gap: int = 10,
@@ -103,13 +104,15 @@ class Form(Stack):
         self.label_width = label_width
         self.control_width = control_width
         self.control_style = control_style
+        self.control_kwargs = control_kwargs or {}
         self.threshold_for_dropdown = threshold_for_dropdown
 
         self.padding = padding
         self.gap = gap
         self.width = width
 
-        self.data_to_control_mapping = self._default_data_to_control_mapping.copy()
+        self.data_to_control_mapping = self.default_data_to_control_mapping.copy()
+        self.data_to_control_mapping.update(control_mapping or {})
 
         if toggle_for_bool:
             self.data_to_control_mapping["bool"] = Toggle
@@ -166,6 +169,7 @@ class Form(Stack):
             label_text=attribute.replace("_", " ").capitalize(),
             placeholder="",
             error_message=self.field_validation_default_error_message,
+            kwargs=self.control_kwargs.get(attribute, {}),
         )
 
         control_data = self._apply_pydantic_overrides(control_data, path)
@@ -249,6 +253,14 @@ class Form(Stack):
     def _is_complex_object(self, object_type: type):
         return is_dataclass(object_type) or hasattr(object_type, "__fields__")
 
+    def _apply_dataclass_overrides(self, control_data, path):
+        control_data.kwargs.update(
+            hasattr(self._model, "__dataclass_fields__") and
+            (dataclass_field := self.value.__dataclass_fields__.get(control_data.attribute)) and
+            (metadata := dataclass_field.metadata) and
+            metadata.get('pglet', {})
+        )
+
     def _apply_pydantic_overrides(self, control_data, path):
         pydantic_field = (
             hasattr(self._model, "__fields__") and self.value.__fields__.get(control_data.attribute) or None
@@ -261,12 +273,14 @@ class Form(Stack):
             if placeholder := pydantic_field.field_info.description:
                 control_data.placeholder = placeholder
                 control_data.error_message = placeholder
+            if (extra := pydantic_field.field_info.extra) and (kwargs := extra.get('pglet')):
+                control_data.kwargs.update(kwargs)
 
         return control_data
 
     def _create_basic_control(self, control_data):
         control_type = self.data_to_control_mapping.get(control_data.attribute_type.__name__, Textbox)
-        control = control_type(value=control_data.value)
+        control = control_type(value=control_data.value, **control_data.kwargs)
         if control_type in (DatePicker, Dropdown, Textbox):
             control.placeholder = control_data.placeholder
         return control

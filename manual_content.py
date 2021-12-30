@@ -11,6 +11,7 @@ from typing import Union
 from pglet import BarChart
 from pglet import Checkbox
 from pglet import Dialog
+from pglet import SpinButton
 from pglet import Stack
 from pglet import Text
 from pglet.barchart import Point
@@ -100,14 +101,14 @@ class Content:
 
         Form control understands the following data types explicitly, others will be by default be represented with a
         basic text box on the form:
-        - str
+        - str (see later for how you can decide between single line and multiline options)
         - int
         - float
         - bool
         - datetime
-        - date
+        - date (current DatePicker timezone restrictions prevent using it here)
         - time
-        - Decimal
+        - Decimal (current SpinButton restrictions prevent using it here)
         """
 
         @dataclass
@@ -138,44 +139,6 @@ class Content:
         return form
 
     data_first_forms.display_name = "Data-first forms"
-
-
-    def styling_and_dimensions(self):
-        """
-        Form is a Stack control, and inherits all the
-        [attributes of Stacks](https://pglet.io/docs/controls/stack#properties).
-
-        You can toggle the switch on the left to experiment with the light and dark themes.
-
-        Example below shows using:
-        - `title` to add a form title at the top,
-        - `control_style` to define an alternative general style, with underlined text boxes,
-        - `toggle_for_bool` to use a toggle instead of a checkbox for boolean values, and
-        - a standard Stack attribute `gap` to add extra space between the lines.
-
-        [code]
-        """
-
-        @dataclass
-        class DataclassDataModel:
-            name: str = "Dataclass Person"
-            birthdate: datetime.date = "2000-01-01"
-            address: str = "Some Street 1, Some Town, Some Country"
-            age: int = 33
-            happy_today: bool = True
-            email: str = "some@email.com"
-
-        form = Form(
-            value=DataclassDataModel,
-            title="Your information",
-            control_style="line",
-            toggle_for_bool=True,
-            gap=24,
-            width=500,
-            on_submit=show_submitted_data,
-        )
-
-        return form
 
     def selection_values(self):
         """
@@ -270,6 +233,109 @@ class Content:
 
         return Form(value=DataclassDataModel, width=500, on_submit=show_submitted_data)
 
+    def styling_and_dimensions(self):
+        """
+        Form is a Stack control, and inherits all the
+        [attributes of Stacks](https://pglet.io/docs/controls/stack#properties).
+
+        You can toggle the switch on the left to experiment with the light and dark themes.
+
+        Example below shows using:
+        - `title` to add a form title at the top,
+        - `control_style` to define an alternative general style, with underlined text boxes,
+        - `toggle_for_bool` to use a toggle instead of a checkbox for boolean values, and
+        - a standard Stack attribute `gap` to add extra space between the lines.
+
+        [code]
+        """
+
+        @dataclass
+        class DataclassDataModel:
+            name: str = "Dataclass Person"
+            birthdate: datetime.date = "2000-01-01"
+            address: str = "Some Street 1, Some Town, Some Country"
+            age: int = 33
+            happy_today: bool = True
+            email: str = "some@email.com"
+
+        form = Form(
+            value=DataclassDataModel,
+            title="Your information",
+            control_style="line",
+            toggle_for_bool=True,
+            gap=24,
+            width=500,
+            on_submit=show_submitted_data,
+        )
+
+        return form
+
+    def customizing_controls(self):
+        """
+        There are several ways to customize controls in a `Form`:
+
+        1. Additional parameters for a specific field, as part of the data definition
+        2. Additional parameters for a specific field, in an `__init__` parameter
+        3. Map a data type to a specific control, for a single form
+        4. Map a data type to a specific control, globally
+
+        Example below covers the first 3:
+
+        1. For dataclasses, the contents of the pglet metadata dictionary is passed as parameters for the control.
+           Here we turn a single-line Textbox into a multiline one.
+        2. If you do not want to mix your data model with UI specifics, you can pass a parameter to the Form,
+           containing extra control initialization kwargs by field name.
+        3. If you want to set all fields of a type to be mapped to a specific control, provide additional type to
+           control mappings to Form. Here we want all `Amount`s have two decimals in the UI.
+
+        [code]
+
+        For option #4, you can set a type/control mapping globally by updating the mapping in the `Form` class directly,
+        like this:
+
+        ```
+        Form.default_data_to_control_mapping["Amount"] = partial(
+            SpinButton, step=.01,
+        )
+        ```
+
+        ... or, of course, by subclassing the Form and setting values in the subclass `__init__`.
+        """
+        from dataclasses import field
+        from functools import partial
+        from typing import NewType
+
+
+        Amount = NewType('Amount', float)
+
+        @dataclass
+        class DataclassDataModel:
+            item: str = field(
+                default="",
+                metadata={"pglet": {
+                    "multiline": True  # <<< 1
+                }}
+            )
+            description: str = ""
+            amount: Amount = Amount(0)
+
+
+        form = Form(
+            value=DataclassDataModel,
+            control_kwargs={
+                'notes_too': {'multiline': True}  # <<< 2
+            },
+            control_mapping={
+                "Amount": partial(  # <<< 3
+                    SpinButton, step=.01,
+                )
+            },
+            width=500,
+            on_submit=show_submitted_data,
+        )
+
+        return form
+
     def introducing_pydantic(self):
         """
         Pydantic is not a dependency of pglet nor of the Form control, so you need to install it separately with:
@@ -323,6 +389,20 @@ class Content:
         class PydanticDataModel(BaseModel):
             name: str = "Pydantic Person"
             email: str = Field("", description="Enter a valid email address")
+
+        return Form(value=PydanticDataModel(), width=500, on_submit=show_submitted_data)
+
+    def customizing_pydantic_fields(self):
+        """
+        Pydantic equivalent of the `dataclasses.field.metadata["pglet"]` is `Field.pglet`.
+
+        Here we use this option for the `notes` attribute to get a multiline `Textbox`.
+
+        [code]
+        """
+        class PydanticDataModel(BaseModel):
+            name: str = "Pydantic Person"
+            notes: str = Field("", pglet={'multiline': True})
 
         return Form(value=PydanticDataModel(), width=500, on_submit=show_submitted_data)
 
@@ -422,6 +502,8 @@ class Content:
 
         done = '''
         Toggle as an alternative for Checkbox
+        Support custom control parameters (e.g. multiline)
+        Support customising controls for types
         '''
 
         return Stack(
