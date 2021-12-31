@@ -255,12 +255,13 @@ class Form(Stack):
         return is_dataclass(object_type) or hasattr(object_type, "__fields__")
 
     def _apply_dataclass_overrides(self, control_data, path):
-        control_data.kwargs.update(
+        if custom_kwargs := (
             hasattr(self._model, "__dataclass_fields__") and
             (dataclass_field := self.value.__dataclass_fields__.get(control_data.attribute)) and
             (metadata := dataclass_field.metadata) and
             metadata.get('pglet', {})
-        )
+        ):
+            control_data.kwargs.update(custom_kwargs)
 
         return control_data
 
