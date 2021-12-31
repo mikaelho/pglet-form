@@ -12,8 +12,8 @@ from manual_content import content
 
 
 class FormDemoApp:
-    def __init__(self):
-        self.page = None
+    def __init__(self, page):
+        self.page = page
 
         self.table_of_contents = Stack(gap=0, controls=self.get_controls_for_table_of_contents())
         self.previous_button = Button(icon="ChevronUp", on_click=partial(self.navigate, -1))
@@ -27,9 +27,9 @@ class FormDemoApp:
 
         self.selected_index = 0
 
-    def main(self, page):
-        self.page = page
+        self.layout()
 
+    def layout(self):
         table_of_contents_buttons = Stack(
             height="100%",
             vertical_align="center",
@@ -66,7 +66,7 @@ class FormDemoApp:
             ],
         )
 
-        page.add(
+        self.page.add(
             Stack(
                 #wrap=True,
                 width="95%",
@@ -80,9 +80,9 @@ class FormDemoApp:
 
         self.navigate(0)
 
-        page.horizontal_align = "center"
+        self.page.horizontal_align = "center"
         self.set_mode()
-        page.update()
+        self.page.update()
 
     def get_controls_for_table_of_contents(self):
         return [
@@ -158,4 +158,4 @@ class FormDemoApp:
 
 
 if __name__ == "__main__":
-    pglet.app("index", target=FormDemoApp().main, local=True)
+    pglet.app("index", target=FormDemoApp, local=True)

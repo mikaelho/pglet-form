@@ -1,12 +1,12 @@
 [tool.poetry]
-name = "pgletsandbox"
+name = "pglet-form-manual"
 version = "0.1.0"
 description = ""
-authors = ["Your Name <you@example.com>"]
+authors = ["Mikael Honkala <mikael.honkala@gmail.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.8"
-pglet = "^0.4.6"
+pglet = ">=0.4.6"
 pydantic = {extras = ["email"], version = "^1.8.2"}
 
 [tool.poetry.dev-dependencies]

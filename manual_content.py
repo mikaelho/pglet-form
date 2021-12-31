@@ -1,5 +1,4 @@
 import datetime
-from collections import defaultdict
 from dataclasses import asdict
 from dataclasses import dataclass
 from dataclasses import field
@@ -37,8 +36,11 @@ class Content:
         your Python application, either on the desktop or on the web. Unfortunately, most Python coders like Python,
         and would like to avoid using a lot of other languages (HTML, Javascript and CSS) just to get a UI created.
 
-        Pglet ("pagelet") is a server using React components and providing a protocol for clients to control the UI. One
-        of the available languages is Python. The server comes nicely bundled in the install, so all you need is:
+        Pglet ("pagelet") is a web server that is written in Go and uses Fluent UI React components. Actual applications
+        ("clients") provide the content and react to events using a proprietary protocol.
+
+        None of the above is visible to a Python developer, since the server comes nicely bundled in the client install.
+        All you need is:
 
         `pip install pglet`
 
@@ -50,6 +52,8 @@ class Content:
         ```
         pglet.page().add(main_view)
         ```
+
+        These manual pages have also been created with pglet-python.
 
         For more details, supported controls and a tutorial, see the [pglet Python docs](https://pglet.io/docs/).
 
