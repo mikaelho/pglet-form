@@ -4,8 +4,12 @@ from dataclasses import dataclass
 from dataclasses import field
 from enum import Enum
 from typing import List
-from typing import Literal
 from typing import Union
+
+try:
+    from typing import Literal
+except ImportError:
+    from typing_extensions import Literal
 
 from pglet import BarChart
 from pglet import Checkbox
@@ -32,9 +36,10 @@ class Content:
         """
         # Easy web development for Python developers
 
-        Web technologies are available everywhere, and they seem like a good way to create a graphical user interface for
-        your Python application, either on the desktop or on the web. Unfortunately, most Python coders like Python,
-        and would like to avoid using a lot of other languages (HTML, Javascript and CSS) just to get a UI created.
+        Web technologies are available everywhere, and they seem like a good way to create a graphical user interface
+        for your Python application, either on the desktop or on the web. Unfortunately, most Python coders like
+        Python, and would like to avoid using a lot of other languages (HTML, Javascript and CSS) just to get a UI
+        created.
 
         Pglet ("pagelet") is a web server that is written in Go and uses Fluent UI React components. Actual applications
         ("clients") provide the content and react to events using a proprietary protocol.
@@ -53,7 +58,7 @@ class Content:
         pglet.page().add(main_view)
         ```
 
-        These manual pages have also been created with pglet-python.
+        As another example, this site has also been created with pglet-python, with no HTML and no CSS in the code.
 
         For more details, supported controls and a tutorial, see the [pglet Python docs](https://pglet.io/docs/).
 
@@ -66,8 +71,8 @@ class Content:
 
         # Easy forms with validation
 
-        Typically you also need to somehow validate user input before you can use it for anything: you need to check that
-        necessary values have been provided, check that numbers are numbers, check dates etc.
+        Typically you also need to somehow validate user input before you can use it for anything: you need to check
+        that necessary values have been provided, check that numbers are numbers, check dates etc.
 
         You can avoid this repetitive code by giving the Form control a [pydantic](https://pydantic-docs.helpmanual.io/)
         object. Validation defined on the object is performed before the data is returned to you. In some cases,
@@ -144,7 +149,7 @@ class Content:
 
     data_first_forms.display_name = "Data-first forms"
 
-    def selection_values(self):
+    def selecting_values(self):
         """
         Python enums are supported for selecting from a specific set of values.
 
@@ -178,6 +183,40 @@ class Content:
             name: str = "Dataclass Person"
             ok_to_contact: bool = True
             contact_option: ContactOption = ContactOption.EMAIL
+
+        return Form(value=DataclassDataModel, width=500, on_submit=show_submitted_data)
+
+    def selecting_multiple_values(self):
+        """
+        Annotating a field with a **list** of enums allows for multiple selection.
+
+        [code]
+        """
+
+        class ContactOption(str, Enum):
+            EMAIL = "email"
+            PHONE = "phone"
+            PIGEON = "pigeon"
+            SMOKE_SIGNALS = "smoke signals"
+
+        @dataclass
+        class DataclassDataModel:
+            contact_option: List[ContactOption] = field(
+                default_factory=lambda: [ContactOption.EMAIL]
+            )
+
+        return Form(value=DataclassDataModel, width=500, on_submit=show_submitted_data)
+
+    def lists_of_fields(self):
+        """
+        Field with a list annotation of other type than an enum is turned into a list control.
+        """
+
+        @dataclass
+        class DataclassDataModel:
+            alphabet: List[str] = field(
+                default_factory=lambda: ["a", "b", "c"]
+            )
 
         return Form(value=DataclassDataModel, width=500, on_submit=show_submitted_data)
 
@@ -230,10 +269,7 @@ class Content:
         class DataclassDataModel:
             name: str = "Dataclass Person"
             email: str = "some@email.com"
-            favorite_movies: List[Movie] = field(
-                default_factory = lambda: movies
-            )
-
+            favorite_movies: List[Movie] = field(default_factory=lambda: movies)
 
         return Form(value=DataclassDataModel, width=500, on_submit=show_submitted_data)
 
@@ -495,19 +531,23 @@ class Content:
         [no code]
         """
         todo = '''
-        Lists for basic types
+        Ordering of lists
         Slider option for number ranges
-        Tests
-        Documentation
+        Proper Documentation
         Responsive layout
         Align/integrate with Grid control
         Dates with DatePicker
+        Manage decimal.Decimal values
         '''
 
         done = '''
+        Lists for basic types
         Toggle as an alternative for Checkbox
         Support custom control parameters (e.g. multiline)
         Support customising controls for types
+        Multiple selection from enums
+        Some tests
+        Documentation in the shape of this demo
         '''
 
         return Stack(

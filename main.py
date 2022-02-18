@@ -42,7 +42,7 @@ class FormDemoApp:
         table_of_contents_area = Stack(
             #width="20%",
             min_width=300,
-            horizontal_align="left",
+            horizontal_align="start",
             margin=32,
             gap=32,
             controls=[
@@ -59,6 +59,7 @@ class FormDemoApp:
 
         text_area = Stack(
             width="100%",
+            max_width=600,
             margin=32,
             controls=[
                 heading_area,
@@ -72,7 +73,7 @@ class FormDemoApp:
                 width="95%",
                 gap=16,
                 horizontal=True,
-                vertical_align="top",
+                vertical_align="start",
                 vertical_fill=False,
                 controls=[table_of_contents_area, text_area, self.result],
             )
@@ -87,7 +88,7 @@ class FormDemoApp:
     def get_controls_for_table_of_contents(self):
         return [
             Stack(
-                border_top="1px solid lightgray",
+                # border_top="1px solid lightgray",
                 gap=0,
                 controls=[
                     Button(
@@ -123,7 +124,8 @@ class FormDemoApp:
         self.title.value = self.display_name(document_function)
         self.body.value = self.get_body_text(document_function)
         self.result.clean()
-        if control := document_function(None):
+        control = document_function(None)
+        if control:
             control.border = "1px solid"
             self.result.controls = [control]
         self.page.update()
@@ -147,10 +149,10 @@ class FormDemoApp:
         return body
 
     def display_name(self, document_function):
-        if value := getattr(document_function, "display_name", None):
-            return value
-        else:
-            return document_function.__name__.replace("_", " ").capitalize()
+        base_display_name = document_function.__name__.replace("_", " ").capitalize()
+        explicit_display_name = getattr(document_function, "display_name", None)
+
+        return explicit_display_name or base_display_name
 
     def set_mode(self, event=None):
         self.page.theme = "dark" if self.mode_toggle.value else "light"
@@ -158,4 +160,4 @@ class FormDemoApp:
 
 
 if __name__ == "__main__":
-    pglet.app("index", target=FormDemoApp, local=True)
+    pglet.app("index", target=FormDemoApp)

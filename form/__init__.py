@@ -1,15 +1,18 @@
 import copy
+import dataclasses
 import datetime
 import time
 from dataclasses import is_dataclass
 from functools import partial
-from types import SimpleNamespace
 from typing import Any
+from typing import List
 from typing import Union
 
 from pglet import Button
 from pglet import Checkbox
 from pglet import ChoiceGroup
+from pglet import ComboBox
+from pglet import Control
 from pglet import DatePicker
 from pglet import Dropdown
 from pglet import Message
@@ -20,6 +23,7 @@ from pglet import Text
 from pglet import Textbox
 from pglet import Toggle
 from pglet import choicegroup
+from pglet import combobox
 from pglet import dropdown
 from pglet.control_event import ControlEvent
 
@@ -58,7 +62,7 @@ class Form(Stack):
         "EmailStrValue": Textbox,
         "PastDateValue": Textbox,
         "FutureDateValue": Textbox,
-        # 'SecretStr': , not supported by pglet
+        # 'SecretStr': , not supported by pglet yet
     }
 
     default_data_to_control_mapping = _standard_library_types
@@ -151,18 +155,27 @@ class Form(Stack):
         ]
         self.controls = title_controls + input_controls + button_controls
 
-    def _create_controls_for_annotations(self, obj, cls, label_above, path: tuple = tuple()):
+    def _create_controls_for_annotations(self, obj, cls, label_above, path: tuple = tuple()) -> List[Control]:
         return [
             self._create_control(attribute, attribute_type, getattr(obj, attribute), label_above, path)
             for attribute, attribute_type in cls.__annotations__.items()
         ]
 
-    def _create_control(self, attribute: str, attribute_type: Any, value: Any, label_above: bool, path: tuple):
+    def _create_control(
+        self,
+        attribute: str,
+        attribute_type: Any,
+        value: Any,
+        label_above: bool,
+        path: tuple
+    ) -> Control:
+
         # For unions, we consider only the first type annotation
-        if (origin := getattr(attribute_type, "__origin__", None)) and origin == Union:
+        origin = getattr(attribute_type, "__origin__", None)
+        if origin and origin == Union:
             attribute_type = attribute_type.__args__[0]
 
-        control_data = SimpleNamespace(
+        control_data = ControlData(
             attribute=attribute,
             attribute_type=attribute_type,
             value=value,
@@ -183,18 +196,16 @@ class Form(Stack):
             actual_type = attribute_type.__args__[0]
             control_data.attribute_type = actual_type
             if type(actual_type).__name__ == "EnumMeta":
-                control = self._create_multiple_choice_control(control_data, multiple=True)
+                control = self._create_choice_control(control_data, multiple=True)
             else:
                 control = self._create_list_control(control_data)
                 is_list = True
         elif type(attribute_type).__name__ == "EnumMeta":
-            control = self._create_multiple_choice_control(control_data)
+            control = self._create_choice_control(control_data)
         elif self._is_complex_object(attribute_type):
             control = self._create_complex_control(control_data, path)
         else:
             control = self._create_basic_control(control_data)
-
-        # control.on_change = handle_change_func
 
         if self.control_style == "line":
             try:
@@ -213,7 +224,6 @@ class Form(Stack):
                 control,
                 message,
             ],
-            # on_submit=handle_change_func,
             width=self.control_width,
             vertical_align="center",
         )
@@ -237,7 +247,7 @@ class Form(Stack):
             label_stack.controls.append(Button(icon="Add", on_click=control.list_add))
 
         attribute_stack = Stack(
-            horizontal_align="right",
+            horizontal_align="end",
             controls=[
                 label_stack,
                 control_stack,
@@ -255,12 +265,15 @@ class Form(Stack):
         return is_dataclass(object_type) or hasattr(object_type, "__fields__")
 
     def _apply_dataclass_overrides(self, control_data, path):
-        if custom_kwargs := (
-            hasattr(self._model, "__dataclass_fields__") and
-            (dataclass_field := self.value.__dataclass_fields__.get(control_data.attribute)) and
-            (metadata := dataclass_field.metadata) and
-            metadata.get('pglet', {})
-        ):
+        custom_kwargs = {}
+        if hasattr(self._model, "__dataclass_fields__"):
+            dataclass_field = self.value.__dataclass_fields__.get(control_data.attribute)
+            if dataclass_field:
+                metadata = dataclass_field.metadata
+                if metadata:
+                    custom_kwargs = metadata.get('pglet', {})
+
+        if custom_kwargs:
             control_data.kwargs.update(custom_kwargs)
 
         return control_data
@@ -272,13 +285,19 @@ class Form(Stack):
 
         if pydantic_field:
             self._pydantic_fields[path + (control_data.attribute,)] = pydantic_field
-            if label_text := pydantic_field.field_info.title:
+
+            label_text = pydantic_field.field_info.title
+            if label_text:
                 control_data.label_text = label_text
-            if placeholder := pydantic_field.field_info.description:
+
+            placeholder = pydantic_field.field_info.description
+            if placeholder:
                 control_data.placeholder = placeholder
                 control_data.error_message = placeholder
-            if (extra := pydantic_field.field_info.extra) and (kwargs := extra.get('pglet')):
-                control_data.kwargs.update(kwargs)
+
+            extra = pydantic_field.field_info.extra
+            if extra:
+                control_data.kwargs.update(extra.get('pglet', {}))
 
         return control_data
 
@@ -289,13 +308,15 @@ class Form(Stack):
             control.placeholder = control_data.placeholder
         return control
 
-    def _create_multiple_choice_control(self, control_data, multiple=False):
-        if multiple:
-            raise NotImplementedError("Multiple selection is not supported yet")
-
+    def _create_choice_control(self, control_data, multiple=False):
         enum_type = control_data.attribute_type
 
-        value = enum_type(control_data.value).value
+        if multiple:
+            return ComboBox(
+                multi_select=True,
+                options=[combobox.Option(key=option.value, text=option.value.title()) for option in enum_type],
+                value=[enum_type(value).value for value in control_data.value],
+            )
 
         if len(enum_type) >= self.threshold_for_dropdown:
             control_type = Dropdown
@@ -303,6 +324,8 @@ class Form(Stack):
         else:
             control_type = ChoiceGroup
             option_type = choicegroup.Option
+
+        value = enum_type(control_data.value).value
 
         return control_type(
             options=[option_type(key=option.value, text=option.value.title()) for option in enum_type],
@@ -317,13 +340,26 @@ class Form(Stack):
             ),
         )
 
-    def _create_list_control(self, control_data):
-        return ListControl(value=control_data.value, attribute_type=control_data.attribute_type, panel_width=self.width)
+    def _create_list_control(self, control_data: "ControlData") -> "ListControl":
+        if self._is_complex_object(control_data.attribute_type):
+            return ListControl(
+                value=control_data.value,
+                attribute_type=control_data.attribute_type,
+                form=self,
+                simple=False,
+                panel_width=self.width,
+            )
+        else:
+            return ListControl(
+                value=control_data.value,
+                attribute_type=control_data.attribute_type,
+                form=self,
+            )
 
     def _handle_field_submit_event(self, attribute, event):
         self._validate_value(attribute)
 
-    def _validate_value(self, attribute):
+    def _validate_value(self, attribute: str) -> bool:
         is_valid = True
         control = self._fields[attribute]
         message = self._messages[attribute]
@@ -336,8 +372,10 @@ class Form(Stack):
             if datetime_tuple[3:6] == (0, 0, 0):
                 control.value = datetime.date(datetime_tuple[:3])
 
-        if pydantic_field := self._pydantic_fields.get(attribute):
-            if description := pydantic_field.field_info.description:
+        pydantic_field = self._pydantic_fields.get(attribute)
+        if pydantic_field:
+            description = pydantic_field.field_info.description
+            if description:
                 message.value = description
             value, error = pydantic_field.validate(
                 control.value,
@@ -386,8 +424,10 @@ class Form(Stack):
 
 class ListControl(Stack):
 
-    def __init__(self, value, attribute_type, panel_width=None, gap=0, **kwargs):
+    def __init__(self, value, attribute_type, form, simple=True, panel_width=None, gap=0, **kwargs):
         super().__init__(**kwargs)
+        self.form = form
+        self.simple = simple
         self.gap = gap
         self.value = value
         self.attribute_type = attribute_type
@@ -397,19 +437,50 @@ class ListControl(Stack):
         self.update()
 
     def update(self):
-        self.controls = [
-            Stack(
-                gap=0,
-                horizontal=True,
-                border_top="1px solid lightgray",
-                controls=[
-                    Button(width="100%", text=str(item), action=True, on_click=partial(self.list_selection, item)),
-                    Button(height="100%", icon="Delete", on_click=partial(self.list_delete, index)),
-                    Button(height="100%", icon="ChevronRight", on_click=partial(self.list_selection, item)),
-                ],
-            )
-            for index, item in enumerate(self.value)
-        ] + [self.panel_holder]
+        if self.simple:
+            self.controls = [
+                Stack(
+                    gap=2,
+                    horizontal=True,
+                    controls=[
+                        self.get_value_control(item, index),
+                        Button(height="100%", icon="Delete", on_click=partial(self.list_delete, index)),
+                    ],
+                )
+                for index, item in enumerate(self.value)
+            ]
+        else:
+            self.controls = [
+                Stack(
+                    gap=0,
+                    horizontal=True,
+                    # border_top="1px solid lightgray",
+                    controls=[
+                        Button(width="100%", text=str(item), action=True, on_click=partial(self.list_selection, item)),
+                        Button(height="100%", icon="Delete", on_click=partial(self.list_delete, index)),
+                        Button(height="100%", icon="ChevronRight", on_click=partial(self.list_selection, item)),
+                    ],
+                )
+                for index, item in enumerate(self.value)
+            ] + [self.panel_holder]
+
+    def get_value_control(self, item: Any, index: int) -> Control:
+        control_data = ControlData(
+            attribute="",
+            attribute_type=self.attribute_type,
+            value=item,
+            label_text="",
+            placeholder="",
+            error_message="",
+            kwargs={},
+        )
+        control = self.form._create_basic_control(control_data)
+        control.width = "100%"
+        control.on_change = partial(self.list_change, index)
+        return control
+
+    def list_change(self, index, event):
+        self.value[index] = event.control.value
 
     def list_selection(self, item, event):
         subform = Form(value=item, on_submit=self._handle_subform_submit_event)
@@ -446,3 +517,14 @@ class ListControl(Stack):
     def _handle_subform_dismiss_event(self, event):
         self.panel_holder.controls.pop()
         self.panel_holder.update()
+
+
+@dataclasses.dataclass
+class ControlData:
+    attribute: str
+    attribute_type: Any
+    value: Any
+    label_text: str
+    placeholder: str
+    error_message: str
+    kwargs: dict
