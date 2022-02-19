@@ -216,14 +216,15 @@ class Form(Stack):
 
         self._fields[path + (attribute,)] = control
 
-        message = Message(value=control_data.error_message, type="error", visible=False)
-        self._messages[path + (attribute,)] = message
+        controls = [control]
+
+        if not self._is_complex_object(attribute_type):
+            message = Message(value=control_data.error_message, type="error", visible=False)
+            self._messages[path + (attribute,)] = message
+            controls.append(message)
 
         control_stack = Stack(
-            controls=[
-                control,
-                message,
-            ],
+            controls=controls,
             width=self.control_width,
             vertical_align="center",
         )
