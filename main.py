@@ -2,7 +2,7 @@ import inspect
 from functools import partial
 from textwrap import dedent
 
-import pglet
+from pglet import app
 from pglet import Button
 from pglet import Stack
 from pglet import Text
@@ -160,4 +160,4 @@ class FormDemoApp:
 
 
 if __name__ == "__main__":
-    pglet.app("index", target=FormDemoApp)
+    app("index", target=FormDemoApp)
