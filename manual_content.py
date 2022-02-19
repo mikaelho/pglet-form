@@ -106,11 +106,11 @@ class Content:
 
         [code]
 
-        Change values, and click "OK" to see the data you would get.
+        You can see the resulting form on the right. Change values, and click "OK" to see the data you would get.
 
         Form control understands the following data types explicitly, others will be by default be represented with a
         basic text box on the form:
-        - str (see later for how you can decide between single line and multiline options)
+        - str (see later for how you can decide between single line and multiline controls for text)
         - int
         - float
         - bool
@@ -508,9 +508,7 @@ class Content:
             newsletter_ok: bool = Field(
                 False, title="Send me the monthly newsletter"
             )
-            email: Union[EmailStr, Literal[""]] = Field(
-                "", description="Valid email needed for newsletter"
-            )
+            email: Union[EmailStr, Literal[""]] = Field("", description="Valid email needed for newsletter")
 
             @validator('email', pre=True, allow_reuse=True)
             def email_filled_if_needed(cls, value, values):
