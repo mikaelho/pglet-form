@@ -1,0 +1,33 @@
+[tool.poetry]
+name = "pglet-form"
+version = "0.1.0"
+description = "Form Control for pglet-python"
+authors = ["Mikael Honkala <mikael.honkala@gmail.com>"]
+license = "The Unlicense"
+readme = "README.md"
+homepage = "https://pglet-form.mikaelho.repl.co"
+repository = "https://github.com/mikaelho/pglet-form"
+packages = [
+    { include = "form" },
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+    "Topic :: Software Development :: User Interfaces",
+]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+pglet = "^0.7.0"
+
+[tool.poetry.dev-dependencies]
+pytest = "^6.2.5"
+pydantic = {extras = ["email"], version = "^1.9.0"}
+typing_extensions = ">=3.7.4,<4.0.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
